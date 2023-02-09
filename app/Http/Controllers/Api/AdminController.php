@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Api\Helpers\ResponseEnum;
 use App\Http\Requests\Api\AdminRequest;
 use App\Http\Resources\Api\AdminResource;
 use App\Http\Resources\Api\UserResource;
@@ -17,7 +18,7 @@ class AdminController extends BaseController
     public function index()
     {
         $admins = Admin::paginate(3);
-        return AdminResource::collection($admins);
+        return $this->successPaginate(UserResource::collection($admins));
     }
 
     public function show(Admin $admin)
@@ -29,7 +30,7 @@ class AdminController extends BaseController
     public function store(AdminRequest $request)
     {
         Admin::create($request->all());
-        return $this->setStatusCode(201)->success('用户注册成功');
+        return $this->setHttpCode(201)->success('用户注册成功');
     }
 
     //用户登录
@@ -65,9 +66,12 @@ class AdminController extends BaseController
             }
             SaveLastTokenJob::dispatch($user,$token);
 
-            return $this->setStatusCode(201)->success(['token' => 'bearer ' . $token]);
+            return $this->setHttpCode(201)->success(
+                ['token' => 'bearer '.$token],
+                ResponseEnum::USER_SERVICE_LOGIN_SUCCESS
+            );
         }
-        return $this->failed('账号或密码错误', 401);
+        return $this->fail(ResponseEnum::USER_SERVICE_LOGIN_ERROR, 401);
     }
 
     public function logout()
