@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Api\Helpers\ResponseEnum;
 use App\Http\Requests\Api\UserRequest;
 use App\Http\Resources\Api\UserResource;
 use App\Jobs\Api\SaveLastTokenJob;
@@ -17,7 +18,7 @@ class UserController extends BaseController
     public function index()
     {
         $users = User::paginate(3);
-        return UserResource::collection($users);
+        return $this->successPaginate(UserResource::collection($users));
     }
 
     public function show(User $user)
@@ -29,7 +30,7 @@ class UserController extends BaseController
     public function store(UserRequest $request)
     {
         User::create($request->all());
-        return $this->setStatusCode(201)->success('用户注册成功');
+        return $this->setHttpCode(201)->success('用户注册成功');
     }
 
     //用户登录
@@ -65,9 +66,12 @@ class UserController extends BaseController
             }
             SaveLastTokenJob::dispatch($user,$token);
 
-            return $this->setStatusCode(201)->success(['token' => 'bearer '.$token]);
+            return $this->setHttpCode(201)->success(
+                ['token' => 'bearer '.$token],
+                ResponseEnum::USER_SERVICE_LOGIN_SUCCESS
+            );
         }
-        return $this->failed('账号或密码错误', 401);
+        return $this->fail(ResponseEnum::USER_SERVICE_LOGIN_ERROR, 401);
     }
 
     public function logout()

@@ -2,75 +2,136 @@
 
 namespace App\Api\Helpers;
 
-use Symfony\Component\HttpFoundation\Response as FoundationResponse;
-use Illuminate\Http\Client\Response;
+use App\Exceptions\BusinessException;
+use Cassandra\Collection;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Resources\Json\JsonResource;
+use Illuminate\Pagination\LengthAwarePaginator;
+use Symfony\Component\HttpFoundation\Response;
 
 trait ApiResponse
 {
-    protected $statusCode = FoundationResponse::HTTP_OK;
+    protected int $httpCode = Response::HTTP_OK;
 
-    public function getStatusCode()
+    public function getHttpCode(): int
     {
-        return $this->statusCode;
+        return $this->httpCode;
     }
 
-    public function setStatusCode($statusCode, $httpCode = null)
+    public function setHttpCode($httpCode): static
     {
-        $this->statusCode = $httpCode ?? $statusCode;
-
+        $this->httpCode = $httpCode;
         return $this;
     }
 
-    public function respond($data, $header = [])
-    {
-        return response()->json($data, $this->getStatusCode(), $header);
-    }
-
-    public function status($status, array $data, $code = null)
-    {
-        if ($code) {
-            $this->setStatusCode($code);
-        }
-        $status = [
-            'status' => $status,
-            'code'   => $this->statusCode
-        ];
-
-        $data = array_merge($status, $data);
-
-        return $this->respond($data);
-    }
-
-    public function failed($message, $code = FoundationResponse::HTTP_BAD_REQUEST, $status = 'error')
-    {
-        return $this->setStatusCode($code)->message($message, $status);
-    }
-
-    public function message($message, $status = "success")
-    {
-        return $this->status($status, [
+    public function message($message, $status = "success"){
+        return $this->status($status,[
             'message' => $message
         ]);
     }
 
-    public function internalError($message = "Internal Error!")
+    /**
+     * 成功
+     * @param  null  $data
+     * @param  array  $codeResponse
+     * @param  string  $status
+     * @return JsonResponse
+     */
+    public function success($data = null, array $codeResponse=ResponseEnum::HTTP_OK, $status = "success"): JsonResponse
     {
-        return $this->failed($message, FoundationResponse::HTTP_INTERNAL_SERVER_ERROR);
+        return $this->jsonResponse($status, $codeResponse, $data, null);
     }
 
-    public function created($message = "created")
+    /**
+     * 失败
+     * @param  array  $codeResponse
+     * @param  int  $httpCode
+     * @param  string  $status
+     * @return JsonResponse
+     */
+    public function fail(array $codeResponse=ResponseEnum::HTTP_ERROR, $httpCode = 400, $status = 'fail'): JsonResponse
     {
-        return $this->setStatusCode(FoundationResponse::HTTP_CREATED)
-            ->message($message);
+        return $this->setHttpCode($httpCode)->jsonResponse($status, $codeResponse);
     }
 
-    public function success($data, $status = "success")
+    /**
+     * json响应
+     * @param $status
+     * @param $codeResponse
+     * @param $data
+     * @param $error
+     * @return JsonResponse
+     */
+    private function jsonResponse($status, $codeResponse, $data = null, $error = null): JsonResponse
     {
-        return $this->status($status, compact('data'));
+        list($code, $message) = $codeResponse;
+        $data = [
+            'status'  => $status,
+            'code'    => $code,
+            'message' => $message,
+            'data'    => $data ?? null,
+            'error'  => $error,
+        ];
+        if (empty($data['data'])) {
+            unset($data['data']);
+        }
+        if (empty($data['error'])) {
+            unset($data['error']);
+        }
+        return $this->response($data);
     }
 
-    public function notFond($message = 'Not Fond!')
+    public function response($data, $headers = []): JsonResponse
     {
-        return $this->failed($message, Foundationresponse::HTTP_NOT_FOUND);
+        return response()->json($data, $this->getHttpCode(), $headers);
+    }
+
+    /**
+     * 成功分页返回
+     * @param $page
+     * @return JsonResponse
+     */
+    protected function successPaginate($page): JsonResponse
+    {
+        return $this->success($this->paginate($page));
+    }
+
+    private function paginate($page)
+    {
+        if ($page instanceof LengthAwarePaginator || $page instanceof JsonResource){
+            return [
+                'total'  => $page->total(),
+                'page'   => $page->currentPage(),
+                'limit'  => $page->perPage(),
+                'pages'  => $page->lastPage(),
+                'list'   => $page->items()
+            ];
+        }
+        if ($page instanceof Collection){
+            $page = $page->toArray();
+        }
+        if (!is_array($page)){
+            return $page;
+        }
+        $total = count($page);
+        return [
+            'total'  => $total, //数据总数
+            'page'   => 1, // 当前页码
+            'limit'  => $total, // 每页的数据条数
+            'pages'  => 1, // 最后一页的页码
+            'list'   => $page // 数据
+        ];
+    }
+
+    /**
+     * 业务异常返回
+     * @param  array  $codeResponse
+     * @param  string  $info
+     * @param  int  $httpCode
+     * @throws BusinessException
+     */
+    public function throwBusinessException(array $codeResponse=ResponseEnum::HTTP_ERROR, string $info = '', int $httpCode = 400)
+    {
+        throw new BusinessException($codeResponse, $info, $httpCode);
     }
 }

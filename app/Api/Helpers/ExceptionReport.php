@@ -68,25 +68,25 @@ class ExceptionReport
 
     }
 
-    public static function make(Throwable $e)
+    public static function make(Throwable $e, $request)
     {
 
-        return new static(request(), $e);
+        return new static($request, $e);
     }
 
     public function report()
     {
         if ($this->exception instanceof ValidationException) {
             $error = Arr::first($this->exception->errors());
-            return $this->failed(Arr::first($error), $this->exception->status);
+            return $this->fail(Arr::first($error), $this->exception->status);
         }
         $message = $this->doReport[$this->report];
-        return $this->failed($message[0], $message[1]);
+        return $this->fail($message[0], $message[1]);
     }
 
     public function prodReport()
     {
-        return $this->failed('服务器错误', '500');
+        return $this->fail('服务器错误', '500');
     }
 
 }
