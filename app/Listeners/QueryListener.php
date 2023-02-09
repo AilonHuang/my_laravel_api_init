@@ -27,7 +27,7 @@ class QueryListener
     public function handle($event)
     {
         // 只在调试环境下输出 log 日志
-        if (!app()->environment(['testing', 'local'])) {
+        if (!env('APP_DEBUG')) {
             return;
         }
         $sql = $event->sql;

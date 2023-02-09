@@ -56,15 +56,11 @@ class Handler extends ExceptionHandler
                     return $reporter->report();
                 }
 
-                if(env('APP_DEBUG')){
-                    //开发环境，则显示详细错误信息
-                    return parent::render($request, $e);
-                }else{
-                    //线上环境,未知错误，则显示500
+                if (!env('APP_DEBUG')) {
+                    // 非调试模式
                     return $reporter->prodReport();
                 }
             }
-            return parent::render($request, $e);
         });
     }
 }
