@@ -64,14 +64,14 @@ class Handler extends ExceptionHandler
                     }
                     return $reporter->prodReport();
                 }
-
             });
 
             $this->renderable(function (BusinessException $exception) {
                 return response()->json([
-                    'status'  => 'fail',
-                    'code'    => $exception->getCode(),
-                    'message' => $exception->getMessage(),
+                    'status'      => 'fail',
+                    'code'        => $exception->getCode(),
+                    'message'     => $exception->getMessage(),
+                    'request_url' => request()->url()//返回客户端当前请求的url路径
                 ], $exception->httpCode);
             });
 
